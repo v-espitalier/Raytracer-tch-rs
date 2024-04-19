@@ -3,7 +3,7 @@
 
 Here you can find a port to Rust, of the Ray Tracer in Atari 8-bit BASIC by D. Scott Williamson ( https://bunsen.itch.io/raytrace-movie-atari-8bit-by-d-scott-williamson ).
 
-I provide 3 implementations here:
+You can find 3 implementations here:
 
 - 2 CPU implementations (One that follows the Atari code line by line to get close to the the original output, and a fancier implementation in which I have replaced the dithering graphics with the usual color gradient, higher resolution, and multithreading for faster computation.)
 
@@ -21,7 +21,7 @@ Beforehand, you need to make sure you got the libtorch installed and ready to us
 - [LaurentMazare/tch-rs/issues/866](https://github.com/LaurentMazare/tch-rs/issues/866)
 
 
-You can also test a CPU-only implementation of the raytracer (without the libtorch dependancy). See [https://github.com/v-espitalier/Raytracer-rs](https://github.com/v-espitalier/Raytracer-rs) .
+There is also a CPU-only implementation of the raytracer (without the libtorch dependancy). See [v-espitalier/Raytracer-rs](https://github.com/v-espitalier/Raytracer-rs) .
 
 Once you installed libtorch, you can start playing with tensors, and test this GPU-based raytracer.
 

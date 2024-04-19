@@ -389,7 +389,7 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
     let mut t_a_small: Tensor = 2. - t_img_index * (0.1 / (n_img_iter as f64) * 110.);
 
     //if a <= -1. {a = a + 11.;}
-    t_a_small = &t_a_small + Tensor::where_scalar(&t_a_small.less_equal(-1.), 11., 0.); // Surement le bon
+    t_a_small = &t_a_small + Tensor::where_scalar(&t_a_small.less_equal(-1.), 11., 0.);
     // see https://pytorch.org/docs/stable/generated/torch.where.html
     // and https://docs.rs/tch/latest/tch/struct.Tensor.html#method.where_scalar
     // and https://docs.rs/tch/latest/tch/struct.Tensor.html#method.less_equal
@@ -413,7 +413,7 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
     let t_a: Tensor = t_a_small.unsqueeze(1).unsqueeze(2).expand([batch_size, height, width], false);
        
 
-    //        for n in 0..191 {              // line 2;  F.N=0TO19 - loop over lines
+    //        for n in 0..191 {              // line 2;  F.N=0TO191- loop over lines
     let n_indexes: Vec<i64> = (0..height).collect::<Vec<_>>();
     // Same value for 'n', for all the images, and all pixels of same line
     let t_im_y_fact: Tensor = Tensor::from_slice(&n_indexes).unsqueeze(0).unsqueeze(2).expand([batch_size, height, width], false).to_device(vs.device());
@@ -551,11 +551,12 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
         // So we need to use a boolean tensor to keep track of alive rays during the loop iterations
         // and perform computation only on pixels which did not 'loop break'.
         // Mind that this is rather unefficient, as most of the pixels will have ray bouncing 1 or 2 times maximum,
-        // but some rays bound up to 8 times..
-        // On the other side, playing with tensors at this level and dynalically extract alive rays only,
+        // but some rays bound up to 8 times, according to stats from the CPU implementation.
+        // On the other side, playing with tensors at this level and dynamically extract alive rays only,
         // as a way to treat those alive only, may lead to performance drop as well
         // (because of mem allocs bottleneck and/or break parrallele computing high flow).
 
+        // Feed with '1' values: All alives at the beginning.
         let mut t_alive:Tensor = Tensor::from(1f64).unsqueeze(0).unsqueeze(1).unsqueeze(2).repeat([batch_size, height, width]).to_device(vs.device());
         let mut t_other:Tensor = Tensor::new();
         let mut count_iter : u32 = 0;
@@ -585,7 +586,7 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
 
             // goto:  G.5+(D<=0)*3   // if d<=0, goto line 8 (break)
             //if d <= 0. {break;}
-            // Update of the not_alive boolean tensor with rays that won't bound anymore.
+            // Update of the alive tensor with rays that won't bound anymore.
             t_alive = t_alive * Tensor::where_scalar(&t_d.less_equal(0.), 0., 1.);
 
             //let mut t : f32 = -p - f32::sqrt(d);          // line 5; T=-P-SQR(D)
@@ -595,7 +596,7 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
 
             // goto: G.6+(T<=0)*2    // if t<=0, goto line 8 (break)
             //if t <= 0. {break;}
-            // Update of the not_alive boolean tensor with rays that won't bound anymore.
+            // Update of the alive tensor with rays that won't bound anymore.
             t_alive = t_alive * Tensor::where_scalar(&t_t.less_equal(0.), 0., 1.);
 
             //x = x + t * u;  // line 6; X=X+T*U
@@ -660,8 +661,9 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
             // If all rays are finished bouncing, break the loop for everybody
             //let n_alive = t_alive.sum(tch::kind::Kind::Float).double_value(&[0 as i64]);
             //if n_alive < 0.5 {break;}
-            // Hardcode to 5, the max number of rebound for the moment
-            // (multithreading version debugging shows there are less than 10 rebounds, difference hardly seen with eyes).
+
+            // Hardcoded max number of reflections for the moment (Need to fix the commented lines above)
+            // (Anyway, multithreading version debugging shows there are less than 10 rebounds, difference hardly seen with eyes above 4 ou 5).
             if (count_iter >= n_max_reflections) {break;}
         } // end loop
         //println!("Nb iter max {}", count_iter);
@@ -671,7 +673,7 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
 
     //if v < 0. {p = (y + 2.) / v;}      // line 8; if v<0then p=(y+2)/v
     let t_p_tmp = (&t_y + 2.) / &t_v;
-    t_p = t_p.where_self(&t_v.greater_equal(0.), &t_p_tmp);    // probablement le bon
+    t_p = t_p.where_self(&t_v.greater_equal(0.), &t_p_tmp);
     //t_p = t_p.where_self(&t_v.less(0.), &t_p_tmp);
 
     //let mut s : i32 = (f32::floor(x - u * p) + f32::floor(z - w * p)) as i32;  // s=int(x-u*p)+int(z-w*p)
@@ -679,22 +681,21 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
     let t_s_tmp2: Tensor = &t_z - &t_w * &t_p;
     let mut t_s: Tensor = Tensor::floor(&t_s_tmp1) + Tensor::floor(&t_s_tmp2);
     //t_s = t_s.to_kind(tch::kind::Kind::Int64);
-    //println!("(30) type du tenseur: {:?}",t_s.kind() );
 
     //s = s % 2; // s - f32::floor(s / 2.) * 2.;   // s=s-int(s/2)*2    // chessboard
     let t_s_tmp3 = &t_s / 2.;
     t_s = &t_s - Tensor::floor(&t_s_tmp3) * 2.;
     //t_s = t_s % 2;
-    //println!("(31) type du tenseur: {:?}",t_s.kind() );
     //t_s = t_s.to_kind(tch::kind::Kind::Double);
 
     //v = -v * ((s as f32) / 2. + 0.3) + 0.2;    // v=-v*(s/2+.3)+.2
     t_v = -1. * &t_v * (&t_s / 2. + 0.3) + 0.2;
 
+    // pl.m,191-n - system instruction: plot(m, 191 - n)
     // pixel color 'intensity'
     let mut t_c: Tensor = 1. - &t_v;
 
-    // Add some colors for display
+    // Add some color interpolation for display
     let rgb_threshold: Vec<f64> = vec![0.4, 0.4, 0.4];
     let rgb_left: Vec<f64>      = vec![1.4, 0.6, 0.0];
     let rgb_mid: Vec<f64>       = vec![0.6, 0.4, 0.0];
@@ -712,10 +713,9 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
     let t_pixel_green : Tensor =  t_pixel_green_left.where_self(&t_c.less(rgb_threshold[1]), &t_pixel_green_right).unsqueeze(1);
     let t_pixel_blue  : Tensor =  t_pixel_blue_left.where_self(&t_c.less(rgb_threshold[2]), &t_pixel_blue_right).unsqueeze(1);
 
-    // Eventually get a pytorch-like tensor [B, C, H, W]
+    // Eventually get a pytorch-like tensor shape [B, C, H, W]
     let t_pixel_rgb : Tensor = Tensor::cat(&[t_pixel_red, t_pixel_green, t_pixel_blue], 1);
 
-    // pl.m,191-n - system instruction: plot(m, 191 - n)
     let vs_cpu = tch::nn::VarStore::new(Device::Cpu);
     return t_pixel_rgb.to_device(vs_cpu.device());
 
@@ -738,8 +738,10 @@ fn raytracing_gpu_tch(n_img_iter: i32, factor_res: i32, batch_size: i32, n_outpu
 
         let mut t_pixels: Tensor = tch::Tensor::new();
         // https://docs.rs/tch/0.15.0/tch/fn.no_grad.html
+        // https://pytorch.org/docs/stable/generated/torch.no_grad.html
         no_grad( || {
             // https://docs.rs/tch/0.15.0/tch/fn.autocast.html
+            // https://pytorch.org/docs/stable/amp.html#torch.autocast
             autocast( b_use_autocast,  || {
                 t_pixels = raytracing_gpu_tch_forward(t_input, &effective_batch_size, &n_img_iter, &factor_res, n_max_reflections);
             });
@@ -752,8 +754,7 @@ fn raytracing_gpu_tch(n_img_iter: i32, factor_res: i32, batch_size: i32, n_outpu
 
         //let t_pixels : Tensor = t_output.unsqueeze(1).expand([effective_batch_size as i64, 3 as i64, height as i64, width as i64], false);
 
-
-        // (CPU) Multithreading of the jpg compression
+        // (CPU) Multithreading of the jpg compression for output images
         let n_img_per_thread: i32 = (((img_index_max - img_index_min) as f32) / (n_output_threads as f32)).ceil() as i32;
         static GLOBAL_THREAD_COUNT: AtomicUsize = ATOMIC_USIZE_INIT;
         
@@ -765,7 +766,8 @@ fn raytracing_gpu_tch(n_img_iter: i32, factor_res: i32, batch_size: i32, n_outpu
             if img_index_max_thread > img_index_max {img_index_max_thread = img_index_max;}
             let img_file_prefix_clone: String = img_file_prefix.clone();
 
-            let t_pixels_thread: Tensor = t_pixels.shallow_clone();
+            // https://docs.rs/tch/0.15.0/tch/struct.Tensor.html#method.shallow_clone
+            let t_pixels_thread: Tensor = t_pixels.shallow_clone();  // Not a real copy = no additional used memory.
 
             GLOBAL_THREAD_COUNT.fetch_add(1, Ordering::SeqCst);
             let handle = std::thread::spawn( move ||
@@ -802,7 +804,7 @@ fn main() {
     if (true) {
         // Translation to Rust + img quality improvements + multithreading
         let n_img_iter: i32 = 300; // Increase the images rate (x3)
-        let factor_res: i32 = 5;   // Increase the resolution to HD
+        let factor_res: i32 = 5;   // Increase the resolution to near HD
         let n_threads: u32 = 16;   // Number of threads (should match the nb of cpu core)
         let img_file_prefix: String = String::from("generated_imgs/img_cpu_");
         raytracing_cpu_multithreading(n_img_iter, factor_res, n_threads, &img_file_prefix);
@@ -810,13 +812,12 @@ fn main() {
 
     if (true) {
         // Rust + gpu/cuda through the tch-rs library (wrapper for libtorch)
-        // Output grayscale image for now (Core implementation is done, it's just about playing with output tensors to get fancy colors).
         let n_img_iter: i32 = 600; // Increase the images rate (x6)
-        let factor_res: i32 = 5;   // Increase the resolution to HD
+        let factor_res: i32 = 5;   // Increase the resolution to near HD
         let batch_size: i32 = 18;  // Number of images treated simultaneously on GPU (Need to be adjusted depending on your VRAM)
         let n_output_threads:  u32 = 16;   // Number of threads for jpeg compression when saving imgs
-        let b_use_autocast: bool = true; // GPU computation in single precision (should save both memory and time)
-        let n_max_reflections: u32 = 4;  // Limit the max number of iterations for reflection computation
+        let b_use_autocast: bool = true; // GPU computation in half precision (should save both memory and time)
+        let n_max_reflections: u32 = 4;  // Limit the max number of iterations for reflections computation
         let img_file_prefix: String = String::from("generated_imgs/img_gpu_");
         raytracing_gpu_tch(n_img_iter, factor_res, batch_size, n_output_threads, b_use_autocast, n_max_reflections, &img_file_prefix);
     }

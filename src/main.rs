@@ -806,14 +806,14 @@ fn raytracing_gpu_tch(n_img_iter: i32, factor_res: i32, batch_size: i32, n_outpu
 
 fn main() {
 
-    if (false) {
+    if (true) {
         // Plain translation from Atari BASIC to Rust
         let factor_res: u32 = 1;   // Original resolution 160x192 (without doubling the horizontal pixels)
         let img_file_prefix: String = String::from("generated_imgs/img_atari_");
         raytracing_cpu_atari_like(factor_res, &img_file_prefix);
     }
 
-    if (false) {
+    if (true) {
         // Translation to Rust + img quality improvements + multithreading
         let n_img_iter: i32 = 300; // Increase the images rate (x3)
         let factor_res: i32 = 5;   // Increase the resolution to near HD

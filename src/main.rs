@@ -118,15 +118,17 @@ fn raytracing_cpu_atari_like(factor_res: u32, img_file_prefix: &String) {
 
             }   // goto: G.4
 
-            if v < 0. {p = (y + 2.) / v;}      // line 8; IF V<0THEN P=(Y+2)/V
+            if v < 0. {
+                p = (y + 2.) / v;      // line 8; IF V<0THEN P=(Y+2)/V
 
-            //let mut s : f32 = f32::floor(x - u * p) + f32::floor(z - w * p);  // S=INT(X-U*P)+INT(Z-W*P)
-            let mut s : i32 = (f32::floor(x - u * p) + f32::floor(z - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
+                //let mut s : f32 = f32::floor(x - u * p) + f32::floor(z - w * p);  // S=INT(X-U*P)+INT(Z-W*P)
+                let mut s : i32 = (f32::floor(x - u * p) + f32::floor(z - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
 
-            // s = s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2
-            s = s % 2; // s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2    // Chessboard
+                // s = s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2
+                s = s % 2; // s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2    // Chessboard
 
-            v = -v * ((s as f32) / 2. + 0.3) + 0.2;    // V=-V*(S/2+.3)+.2
+                v = -v * ((s as f32) / 2. + 0.3) + 0.2;    // V=-V*(S/2+.3)+.2
+            }
 
             // line 9 C.3-INT(((3*16)*SQR(V)+DI((M-INT(M/4)*4)+(N-INT(N/4)*4)*4)/3)/16)
             //let m_diff : usize = usize::try_from(m - ((m / 4)) * 4).unwrap();
@@ -263,15 +265,17 @@ fn raytracing_cpu_single_thread(ref_img_index_min : &i32, ref_img_index_max : &i
 
             }   // goto: G.4
 
-            if v < 0. {p = (y + 2.) / v;}      // line 8; IF V<0THEN P=(Y+2)/V
+            if v < 0. {
+                p = (y + 2.) / v;      // line 8; IF V<0THEN P=(Y+2)/V
 
-            //let mut s : f32 = f32::floor(x - u * p) + f32::floor(z - w * p);  // S=INT(X-U*P)+INT(Z-W*P)
-            let mut s : i32 = (f32::floor(x - u * p) + f32::floor(z - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
+                //let mut s : f32 = f32::floor(x - u * p) + f32::floor(z - w * p);  // S=INT(X-U*P)+INT(Z-W*P)
+                let mut s : i32 = (f32::floor(x - u * p) + f32::floor(z - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
 
-            // s = s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2
-            s = s % 2; // s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2    // Chessboard
+                // s = s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2
+                s = s % 2; // s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2    // Chessboard
 
-            v = -v * ((s as f32) / 2. + 0.3) + 0.2;    // V=-V*(S/2+.3)+.2
+                v = -v * ((s as f32) / 2. + 0.3) + 0.2;    // V=-V*(S/2+.3)+.2
+            }
 
             // line 9 C.3-INT(((3*16)*SQR(V)+DI((M-INT(M/4)*4)+(N-INT(N/4)*4)*4)/3)/16)
             //let m_diff : usize = usize::try_from(m - ((m / 4)) * 4).unwrap();
@@ -283,7 +287,8 @@ fn raytracing_cpu_single_thread(ref_img_index_min : &i32, ref_img_index_max : &i
 
             //let di_index : usize = m_mod + n_mod * 4;
             // Pixel color
-            let mut c: u8 = (255. * v) as u8;
+            //let mut c: u8 = (255. * v) as u8;
+            let mut c: u8 = (255. * f32::sqrt(v)) as u8;
 
             // PL.M,191-N - system instruction: PLOT(M, 191 - N)
             c = 255 - c;
@@ -693,7 +698,8 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
 
     // pl.m,191-n - system instruction: plot(m, 191 - n)
     // pixel color 'intensity'
-    let mut t_c: Tensor = 1. - &t_v;
+    //let mut t_c: Tensor = 1. - &t_v;
+    let mut t_c: Tensor = 1. - Tensor::sqrt(&t_v);
 
     // Add some color interpolation for display
     let rgb_threshold: Vec<f64> = vec![0.4, 0.4, 0.4];

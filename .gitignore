@@ -3,5 +3,5 @@ Cargo.lock
 video_atari.mp4
 video_gpu.mp4
 video_cpu.mp4
-#/generated_imgs
 *.mp4
+/generated_imgs

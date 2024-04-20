@@ -685,8 +685,10 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
     //t_p = t_p.where_self(&t_v.less(0.), &t_p_tmp);
 
     //let mut s : i32 = (f32::floor(x - u * p) + f32::floor(z - w * p)) as i32;  // s=int(x-u*p)+int(z-w*p)
-    let t_s_tmp1: Tensor = &t_x - &t_u * &t_p;
-    let t_s_tmp2: Tensor = &t_z - &t_w * &t_p;
+    //let t_s_tmp1: Tensor = &t_x - &t_u * &t_p;
+    let t_s_tmp1: Tensor = -1. * &t_u * &t_p;
+    //let t_s_tmp2: Tensor = &t_z - &t_w * &t_p;
+    let t_s_tmp2: Tensor = &t_a - &t_w * &t_p;
     let mut t_s: Tensor = Tensor::floor(&t_s_tmp1) + Tensor::floor(&t_s_tmp2);
     //t_s = t_s.to_kind(tch::kind::Kind::Int64);
 
@@ -697,7 +699,8 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
     //t_s = t_s.to_kind(tch::kind::Kind::Double);
 
     //v = -v * ((s as f32) / 2. + 0.3) + 0.2;    // v=-v*(s/2+.3)+.2
-    t_v = -1. * &t_v * (&t_s / 2. + 0.3) + 0.2;
+    let t_v_tmp = -1. * &t_v * (&t_s / 2. + 0.3) + 0.2;
+    t_v = t_v.where_self(&t_v.greater_equal(0.), &t_v_tmp);
 
     // pl.m,191-n - system instruction: plot(m, 191 - n)
     // pixel color 'intensity'
@@ -705,10 +708,10 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
     let mut t_c: Tensor = 1. - Tensor::sqrt(&t_v);
 
     // Add some color interpolation for display
-    let rgb_threshold: Vec<f64> = vec![0.4, 0.4, 0.4];
-    let rgb_left: Vec<f64>      = vec![1.4, 0.6, 0.0];
-    let rgb_mid: Vec<f64>       = vec![0.6, 0.4, 0.0];
-    let rgb_right: Vec<f64>     = vec![-0.4, -0.5, 0.0];
+    let rgb_threshold: Vec<f64> = vec![0.5, 0.5, 0.5];
+    let rgb_left: Vec<f64>      = vec![3.1, 1.5, 0.0];
+    let rgb_mid: Vec<f64>       = vec![0.0, 0.4, 0.0];
+    let rgb_right: Vec<f64>     = vec![-1.5, -2.8, 0.0];
 
     let t_pixel_red_left    : Tensor = rgb_left[0] + ((rgb_mid[0]   - rgb_left[0]) / rgb_threshold[0]) * &t_c;
     let t_pixel_green_left  : Tensor = rgb_left[1] + ((rgb_mid[1]   - rgb_left[1]) / rgb_threshold[1]) * &t_c;
@@ -803,14 +806,14 @@ fn raytracing_gpu_tch(n_img_iter: i32, factor_res: i32, batch_size: i32, n_outpu
 
 fn main() {
 
-    if (true) {
+    if (false) {
         // Plain translation from Atari BASIC to Rust
         let factor_res: u32 = 1;   // Original resolution 160x192 (without doubling the horizontal pixels)
         let img_file_prefix: String = String::from("generated_imgs/img_atari_");
         raytracing_cpu_atari_like(factor_res, &img_file_prefix);
     }
 
-    if (true) {
+    if (false) {
         // Translation to Rust + img quality improvements + multithreading
         let n_img_iter: i32 = 300; // Increase the images rate (x3)
         let factor_res: i32 = 5;   // Increase the resolution to near HD
@@ -826,7 +829,7 @@ fn main() {
         let batch_size: i32 = 18;  // Number of images treated simultaneously on GPU (Need to be adjusted depending on your VRAM)
         let n_output_threads:  u32 = 16;   // Number of threads for jpeg compression when saving imgs
         let b_use_autocast: bool = true; // GPU computation in half precision (should save both memory and time)
-        let n_max_reflections: u32 = 4;  // Limit the max number of iterations for reflections computation
+        let n_max_reflections: u32 = 6;  // Limit the max number of iterations for reflections computation
         let img_file_prefix: String = String::from("generated_imgs/img_gpu_");
         raytracing_gpu_tch(n_img_iter, factor_res, batch_size, n_output_threads, b_use_autocast, n_max_reflections, &img_file_prefix);
     }

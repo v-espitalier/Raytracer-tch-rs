@@ -122,7 +122,8 @@ fn raytracing_cpu_atari_like(factor_res: u32, img_file_prefix: &String) {
                 p = (y + 2.) / v;      // line 8; IF V<0THEN P=(Y+2)/V
 
                 //let mut s : f32 = f32::floor(x - u * p) + f32::floor(z - w * p);  // S=INT(X-U*P)+INT(Z-W*P)
-                let mut s : i32 = (f32::floor(x - u * p) + f32::floor(z - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
+                //let mut s : i32 = (f32::floor(x - u * p) + f32::floor(z - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
+                let mut s : i32 = (f32::floor(0. - u * p) + f32::floor(a - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
 
                 // s = s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2
                 s = s % 2; // s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2    // Chessboard
@@ -269,7 +270,9 @@ fn raytracing_cpu_single_thread(ref_img_index_min : &i32, ref_img_index_max : &i
                 p = (y + 2.) / v;      // line 8; IF V<0THEN P=(Y+2)/V
 
                 //let mut s : f32 = f32::floor(x - u * p) + f32::floor(z - w * p);  // S=INT(X-U*P)+INT(Z-W*P)
-                let mut s : i32 = (f32::floor(x - u * p) + f32::floor(z - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
+
+                //let mut s : i32 = (f32::floor(x - u * p) + f32::floor(z - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
+                let mut s : i32 = (f32::floor(0. - u * p) + f32::floor(a - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
 
                 // s = s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2
                 s = s % 2; // s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2    // Chessboard

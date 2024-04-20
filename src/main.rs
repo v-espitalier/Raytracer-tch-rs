@@ -126,7 +126,7 @@ fn raytracing_cpu_atari_like(factor_res: u32, img_file_prefix: &String) {
                 let mut s : i32 = (f32::floor(0. - u * p) + f32::floor(a - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
 
                 // s = s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2
-                s = s % 2; // s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2    // Chessboard
+                s = s % 2; // s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2    // Checkerboard
 
                 v = -v * ((s as f32) / 2. + 0.3) + 0.2;    // V=-V*(S/2+.3)+.2
             }
@@ -275,7 +275,7 @@ fn raytracing_cpu_single_thread(ref_img_index_min : &i32, ref_img_index_max : &i
                 let mut s : i32 = (f32::floor(0. - u * p) + f32::floor(a - w * p)) as i32;  // S=INT(X-U*P)+INT(Z-W*P)
 
                 // s = s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2
-                s = s % 2; // s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2    // Chessboard
+                s = s % 2; // s - f32::floor(s / 2.) * 2.;   // S=S-INT(S/2)*2    // Checkerboard
 
                 v = -v * ((s as f32) / 2. + 0.3) + 0.2;    // V=-V*(S/2+.3)+.2
             }
@@ -428,10 +428,10 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
 
     //            for m in 0..159 {            // F.M=0TO159     // Loop over pixels of current line
     let m_indexes: Vec<i64> = (0..width).collect::<Vec<_>>();
-    // Same value for 'n', for all the images, and all pixels of same line
+    // Same value for 'm', for all the images, and all pixels of same column
     let t_im_x_fact: Tensor = Tensor::from_slice(&m_indexes).unsqueeze(0).unsqueeze(1).expand([batch_size, height, width], false).to_device(vs.device());
 
-    //  for (im_x_fact, im_y_fact, pixel) in image.enumerate_pixels_mut() {    // pc CPU (previous) version of loop over pixels of an image
+    //  for (im_x_fact, im_y_fact, pixel) in image.enumerate_pixels_mut() {  // CPU (previous) version of the loop over pixels
 
     // Here, we are inside 3 'virtual' loops: Looping over images of the batch, over lines of the same image, and over pixels of the same line.
     // -> plain GPU-parrallele computing
@@ -444,11 +444,8 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
     let t_mf: Tensor = t_m_fact / (factor_res as f64);
     let t_nf: Tensor = t_n_fact / (factor_res as f64);
     
-    //let t_m: Tensor = 1. * &t_mf;
-    //let t_n: Tensor = 1. * &t_nf;
-
     //let mut x : f32 = 0.;           // X=0
-    // use repeat and not expand, as the values of the array will change, and have their own life.
+    // use repeat and not expand, as the values of the tensor will change, and have their own life.
     let mut t_x : Tensor = Tensor::from(0f64).unsqueeze(0).unsqueeze(1).unsqueeze(2).repeat([batch_size, height, width]).to_device(vs.device());
 
     //let mut y : f32 = - a / 25.;    // Y=-A/25:
@@ -459,7 +456,7 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
     //let mut i : f32 = -1.;          // I=SGN(M-80.5)
     let mut t_i : Tensor = Tensor::from(-1f64).unsqueeze(0).unsqueeze(1).unsqueeze(2).repeat([batch_size, height, width]).to_device(vs.device());
     //if mf >= 80.5 {i = 1.;}
-    t_i =  t_i.where_scalarother(&t_mf.less(80.5), 1.);    // Certainement correct
+    t_i =  t_i.where_scalarother(&t_mf.less(80.5), 1.);
     //t_i =  t_i.where_scalarother(&t_mf.greater_equal(80.5), 1.);
 
     //let mut u : f32 = (mf - 80.5) / (40. * 1.3);    // line 3; U=(M-80.5)/(40*1.3)
@@ -555,22 +552,25 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
 
         // Loop to calculate the ray reflections on spheres
         // The number of reflections among the pixels may vary
-        // Parrallele computing prevent pixel-level plain rust instructions
-        // So we need to use a boolean tensor to keep track of alive rays during the loop iterations
+        // Parrallele computing prevent pixel-level plain rust instructions (IF condition at pixel level)
+        // So we need to use an additional tensor to keep track of alive rays during the loop iterations
         // and perform computation only on pixels which did not 'loop break'.
         // Mind that this is rather unefficient, as most of the pixels will have ray bouncing 1 or 2 times maximum,
-        // but some rays bound up to 8 times, according to stats from the CPU implementation.
-        // On the other side, playing with tensors at this level and dynamically extract alive rays only,
-        // as a way to treat those alive only, may lead to performance drop as well
-        // (because of mem allocs bottleneck and/or break parrallele computing high flow).
+        // but some rays bound up to 8 times, according to watch variable from the CPU implementation.
+        // On the other side, playing with tensors at this level, to dynamically extract alive rays only,
+        // as a way to treat them separately, may lead to performance drop as well
+        // (because of mem allocs bottleneck, data copy and/or break parrallele computing high flow in general).
 
-        // Feed with '1' values: All alives at the beginning.
+        // Feed with '1' values: All rays alives at the beginning.
         let mut t_alive:Tensor = Tensor::from(1f64).unsqueeze(0).unsqueeze(1).unsqueeze(2).repeat([batch_size, height, width]).to_device(vs.device());
+
+        // For all the 'where( .., other)' instruction
         let mut t_other:Tensor = Tensor::new();
         let mut count_iter : u32 = 0;
         loop {
 
-            // Loop while at least one CUDA kernel is alive, i.e. rays are bouncing between spheres
+            // Loop while at least one CUDA thread is calculating instead of stalling,
+            // i.e. some rays are bouncing between spheres
             
             //let mut e : f32 = x - i;                      // line 4; E=X-I
             //t_e = &t_x - &t_i;
@@ -692,7 +692,7 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
     let mut t_s: Tensor = Tensor::floor(&t_s_tmp1) + Tensor::floor(&t_s_tmp2);
     //t_s = t_s.to_kind(tch::kind::Kind::Int64);
 
-    //s = s % 2; // s - f32::floor(s / 2.) * 2.;   // s=s-int(s/2)*2    // chessboard
+    //s = s % 2; // s - f32::floor(s / 2.) * 2.;   // s=s-int(s/2)*2    // Checkerboard
     let t_s_tmp3 = &t_s / 2.;
     t_s = &t_s - Tensor::floor(&t_s_tmp3) * 2.;
     //t_s = t_s % 2;

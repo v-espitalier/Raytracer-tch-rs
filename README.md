@@ -25,16 +25,20 @@ There is also a CPU-only implementation of the raytracer (without the libtorch d
 
 Once you installed libtorch, you can start playing with tensors, and test this GPU-based raytracer.
 
-Compilation and run:
+Commands to get the raytracer videos:
 
 ~~~
+# Download source code
+git clone https://github.com/v-espitalier/Raytracer-tch-rs
+
+# Compilation
+cd Raytracer-tch-rs/
 cargo build
-/target/debug/raytracer
-~~~
 
-The code generates image files. You can then gather them to a video using ffmpeg:
+# Execution of the Raytracer (images generations)
+cargu run
 
-~~~
+# Images merge to get the videos, using ffmpeg:
 ffmpeg -framerate 5 -pattern_type glob -i 'generated_imgs/img_atari_*.png' \
   -c:v libx264 -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" video_atari.mp4
 

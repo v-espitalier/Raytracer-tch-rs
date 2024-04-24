@@ -4,7 +4,7 @@ use std::thread;
 use std::time::Duration;
 // Libs for tch-rs (gpu)
 use torch_sys::IntList;
-use tch::{Tensor, Device, nn::VarStore, no_grad, autocast, vision::imagenet::save_image};
+use tch::{Tensor, Device, nn::VarStore, no_grad, autocast, vision::image::save as save_image};
 
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -667,7 +667,10 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
             //println!("iter cour {}", count_iter);
             
             // If all rays are finished bouncing, break the loop for everybody
-            //let n_alive = t_alive.sum(tch::kind::Kind::Float).double_value(&[0 as i64]);
+            //let t_n_alive = t_alive.sum(tch::kind::Kind::Float);
+            //println!("kind: {:#?}", t_n_alive.kind());
+            //println!("size: {:#?}", t_n_alive.size());
+            //let n_alive: f64 = t_n_alive.double_value(&[0 as i64]);
             //if n_alive < 0.5 {break;}
 
             // Hardcoded max number of reflections for the moment (Need to fix the commented lines above)
@@ -708,10 +711,10 @@ fn raytracing_gpu_tch_forward(t_input: Tensor, ref_batch_size: &i32, ref_n_img_i
     let mut t_c: Tensor = 1. - Tensor::sqrt(&t_v);
 
     // Add some color interpolation for display
-    let rgb_threshold: Vec<f64> = vec![0.5, 0.5, 0.5];
-    let rgb_left: Vec<f64>      = vec![3.1, 1.5, 0.0];
-    let rgb_mid: Vec<f64>       = vec![0.0, 0.4, 0.0];
-    let rgb_right: Vec<f64>     = vec![-1.5, -2.8, 0.0];
+    let rgb_threshold: Vec<f64> = vec![0.2, 0.2, 0.2];
+    let rgb_left: Vec<f64>      = vec![0., 0., 0.];
+    let rgb_mid: Vec<f64>       = vec![50., 0., 100.];
+    let rgb_right: Vec<f64>     = vec![0., 256., 256.];
 
     let t_pixel_red_left    : Tensor = rgb_left[0] + ((rgb_mid[0]   - rgb_left[0]) / rgb_threshold[0]) * &t_c;
     let t_pixel_green_left  : Tensor = rgb_left[1] + ((rgb_mid[1]   - rgb_left[1]) / rgb_threshold[1]) * &t_c;

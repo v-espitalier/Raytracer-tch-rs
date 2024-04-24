@@ -5,3 +5,7 @@ video_gpu.mp4
 video_cpu.mp4
 *.mp4
 /generated_imgs
+!/generated_imgs/atari_cpu_gpu.jpg
+!/generated_imgs/img_atari_000.jpg
+!/generated_imgs/img_cpu_000.jpg
+!/generated_imgs/img_gpu_000.jpg

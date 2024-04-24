@@ -36,7 +36,7 @@ cd Raytracer-tch-rs/
 cargo build
 
 # Execution of the Raytracer (images generations)
-cargu run
+cargo run
 
 # Images merge to get the videos, using ffmpeg:
 ffmpeg -framerate 5 -pattern_type glob -i 'generated_imgs/img_atari_*.png' \

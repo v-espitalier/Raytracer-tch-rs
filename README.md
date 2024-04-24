@@ -9,7 +9,7 @@ You can find 3 implementations here:
 
 - And a GPU implementation, based on the Rust library tch-rs, which is a wrapper for libtorch.
 
-![Example of atari, cpu, gpu images](examples_imgs/atari_cpu_gpu.jpg)
+![Example of atari, cpu, gpu images](generated_imgs/atari_cpu_gpu.jpg)
 
 
 Beforehand, you need to make sure you got the libtorch installed and ready to use for tch-rs. You can get some information over there:
